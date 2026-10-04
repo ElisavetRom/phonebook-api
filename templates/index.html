@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Телефонный справочник</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 15px; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f4f4f4; }
+        form { margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 5px; }
+        input { padding: 6px; margin: 4px; }
+        button { padding: 6px 12px; margin: 4px; cursor: pointer; }
+        .btn-danger { background: #e74c3c; color: white; border: none; border-radius: 3px; }
+        .btn-primary { background: #3498db; color: white; border: none; border-radius: 3px; }
+        .btn-secondary { background: #95a5a6; color: white; border: none; border-radius: 3px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<h1>Телефонный справочник</h1>
+
+<!-- Кнопка удаления всех контактов -->
+<button class="btn-danger" onclick="deleteAll()">Удалить все контакты</button>
+
+<!-- Таблица контактов -->
+<table id="contactsTable">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Имя</th>
+        <th>Email</th>
+        <th>Мобильный</th>
+        <th>Домашний</th>
+        <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody id="contactsBody">
+    <tr><td colspan="6">Загрузка...</td></tr>
+    </tbody>
+</table>
+
+<!-- Форма добавления/редактирования -->
+<h2 id="formTitle">Добавить контакт</h2>
+<form id="contactForm" onsubmit="saveContact(event)">
+    <input type="hidden" id="contactId">
+    <input type="text" id="username" placeholder="Имя" required>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="text" id="mobile" placeholder="Мобильный">
+    <input type="text" id="home" placeholder="Домашний">
+    <button type="submit" class="btn-primary">Сохранить</button>
+    <button type="button" class="btn-secondary hidden" id="cancelBtn" onclick="resetForm()">Отмена</button>
+</form>
+
+<script>
+    const API = "/api/contacts";
+
+    // Загрузка списка контактов
+    async function loadContacts() {
+        const res = await fetch(API);
+        const contacts = await res.json();
+        const tbody = document.getElementById("contactsBody");
+        tbody.innerHTML = "";
+
+        if (contacts.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">Нет контактов</td></tr>';
+            return;
+        }
+
+        for (const c of contacts) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${c.id}</td>
+                <td>${c.username}</td>
+                <td>${c.email}</td>
+                <td>${c.mobile || ""}</td>
+                <td>${c.home || ""}</td>
+                <td>
+                    <button class="btn-primary" onclick='editContact(${JSON.stringify(c)})'>Изменить</button>
+                    <button class="btn-danger" onclick="deleteContact(${c.id})">Удалить</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    // Сохранение (создание или обновление)
+    async function saveContact(event) {
+        event.preventDefault();
+        const id = document.getElementById("contactId").value;
+        const data = {
+            username: document.getElementById("username").value,
+            email: document.getElementById("email").value,
+            mobile: document.getElementById("mobile").value,
+            home: document.getElementById("home").value,
+        };
+
+        if (id) {
+            await fetch(`${API}/${id}`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            });
+        } else {
+            await fetch(API, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            });
+        }
+
+        resetForm();
+        loadContacts();
+    }
+
+    // Подстановка данных в форму для редактирования
+    function editContact(contact) {
+        document.getElementById("contactId").value = contact.id;
+        document.getElementById("username").value = contact.username;
+        document.getElementById("email").value = contact.email;
+        document.getElementById("mobile").value = contact.mobile || "";
+        document.getElementById("home").value = contact.home || "";
+        document.getElementById("formTitle").textContent = "Редактировать контакт";
+        document.getElementById("cancelBtn").classList.remove("hidden");
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    // Сброс формы
+    function resetForm() {
+        document.getElementById("contactForm").reset();
+        document.getElementById("contactId").value = "";
+        document.getElementById("formTitle").textContent = "Добавить контакт";
+        document.getElementById("cancelBtn").classList.add("hidden");
+    }
+
+    // Удаление одного контакта
+    async function deleteContact(id) {
+        if (!confirm("Удалить контакт?")) return;
+        await fetch(`${API}/${id}`, {method: "DELETE"});
+        loadContacts();
+    }
+
+    // Удаление всех контактов
+    async function deleteAll() {
+        if (!confirm("Удалить ВСЕ контакты?")) return;
+        await fetch(API, {method: "DELETE"});
+        loadContacts();
+    }
+
+    // Первичная загрузка
+    loadContacts();
+</script>
+
+</body>
+</html>
